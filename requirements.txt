@@ -1,0 +1,10 @@
+streamlit
+requests
+pandas
+jdatetime
+pyyaml
+streamlit-authenticator
+streamlit-option-menu
+cryptography
+bcrypt
+st-copy-to-clipboard

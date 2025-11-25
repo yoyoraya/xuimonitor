@@ -31,7 +31,8 @@ Go to the Servers tab to add your X-UI panels.
 ## 🛠️ Management
 To update, uninstall, or manage the panel, simply run the setup script again:
 
-```./setup.sh
+```
+./setup.sh
 ```
 ##🔒 Security Note
 This project does not store your server credentials in plain text. All sensitive data is encrypted locally on your server.

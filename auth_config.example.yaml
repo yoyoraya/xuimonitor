@@ -1,0 +1,10 @@
+credentials:
+  usernames:
+    
+cookie:
+  expiry_days: 30
+  key: "random_signature_key_change_this" 
+  name: "xui_monitor_cookie"
+
+preauthorized:
+  emails: []

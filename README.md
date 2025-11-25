@@ -1,3 +1,4 @@
+<img width="1024" height="506" alt="image" src="https://github.com/user-attachments/assets/dbc9c4dd-47ff-4267-aa79-f705073cedf9" />
 # 🛡️ X-UI Monitor Dashboard
 
 A comprehensive, mobile-friendly monitoring dashboard for managing multiple X-UI panels (Sanaei, Alireza, etc.) in one place.

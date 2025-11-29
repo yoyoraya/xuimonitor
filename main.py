@@ -15,7 +15,7 @@ import streamlit_authenticator as stauth
 from streamlit_option_menu import option_menu 
 from utils import load_servers, save_server, delete_server
 
-# Disable SSL warnings
+# غیرفعال کردن اخطارهای SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- Page Config ---
@@ -186,12 +186,40 @@ def format_time_remaining(days_decimal):
     if days > 0: return f"{days}d {hours}h"
     return f"{hours}h"
 
+# --- 🔥 FINAL ROBUST PHONE EXTRACTION ---
 def extract_core_phone(username):
-    digits_only = re.sub(r'\D', '', username)
-    match_98 = re.search(r'98(9\d{9})', digits_only)
-    if match_98: return match_98.group(1)
-    match_09 = re.search(r'0(9\d{9})', digits_only)
-    if match_09: return match_09.group(1)
+    """
+    1. حذف تمام حروف و کاراکترهای غیر عددی (اما نه فاصله)
+    2. حذف فاصله‌ها
+    3. جستجوی الگو در رشته تمام‌عددی
+    """
+    # مرحله ۱: حذف حروف و علائم غیر عددی و غیر فاصله
+    # (اینجا فقط عدد و فاصله میمونه)
+    digits_and_spaces = re.sub(r'[^\d\s]', '', username)
+    
+    # مرحله ۲: حذف تمام فاصله‌ها برای چسباندن اعداد پخش شده
+    clean_digits = re.sub(r'\s+', '', digits_and_spaces)
+    
+    # مرحله ۳: جستجوی شماره موبایل در میان انبوه اعداد
+    # اولویت با شماره‌های طولانی‌تر (با ۹۸)
+    
+    # فرمت 98912... (12 رقم)
+    # از آخر به اول (برای جلوگیری از تداخل با اعداد ابتدای نام)
+    match_98 = re.search(r'(989\d{9})', clean_digits)
+    if match_98:
+        # مطمئن می‌شویم که این آخرین شماره معتبر است
+        # اگر چند شماره بود، آخریش احتمالا موبایل یوزر هست، نه کد یوزر
+        matches = re.findall(r'(989\d{9})', clean_digits)
+        if matches:
+            return matches[-1][2:] # برگرداندن 9xxxxxxxxx
+
+    # فرمت 0912... (11 رقم)
+    match_09 = re.search(r'(09\d{9})', clean_digits)
+    if match_09:
+        matches = re.findall(r'(09\d{9})', clean_digits)
+        if matches:
+            return matches[-1][1:] # برگرداندن 9xxxxxxxxx
+
     return None
 
 def get_sms_link(core_number, text):
@@ -250,6 +278,7 @@ elif st.session_state["authentication_status"]:
         debug_mode = st.checkbox("🐞 Debug Mode", value=val_debug)
         
         st.divider()
+        
         with st.expander("💬 Message Templates", expanded=True):
             st.caption("Vars: `{user}`, `{rem}`, `{time}`, `{date}`")
             current_tpl = settings['templates']
@@ -305,11 +334,11 @@ elif st.session_state["authentication_status"]:
             except: return None
 
             api_endpoints = [
-                f"{base_url}/panel/api/inbounds/list",  # Sanaei / 3x-ui
-                f"{base_url}/xui/API/inbounds/",        # Alireza
-                f"{base_url}/xui/API/inbounds",         
-                f"{base_url}/xui/API/inbounds/list",    
-                f"{base_url}/api/inbounds/list"         
+                f"{base_url}/panel/api/inbounds/list",
+                f"{base_url}/xui/API/inbounds/",
+                f"{base_url}/xui/API/inbounds",
+                f"{base_url}/xui/API/inbounds/list",
+                f"{base_url}/api/inbounds/list"
             ]
             
             for url in api_endpoints:

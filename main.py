@@ -12,16 +12,15 @@ from urllib.parse import quote
 from datetime import datetime
 from yaml.loader import SafeLoader
 import streamlit_authenticator as stauth
-from streamlit_option_menu import option_menu 
 from utils import load_servers, save_server, delete_server
 
-# غیرفعال کردن اخطارهای SSL
+# غیرفعال کردن اخطارهای امنیتی SSL
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # --- Page Config ---
 st.set_page_config(page_title="X-UI Monitor", layout="wide", page_icon="🛡️")
 
-# --- 1. INJECT VAZIRMATN FONT & CUSTOM CSS ---
+# --- 1. INJECT VAZIRMATN FONT & CLEAN CSS ---
 st.markdown("""
     <style>
         @import url('https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css');
@@ -33,6 +32,7 @@ st.markdown("""
         footer {visibility: hidden;}
         .stDeployButton {display:none;}
         
+        /* فاصله استاندارد برای کانتینر اصلی */
         .block-container {
             padding-top: 2rem !important;
             padding-bottom: 3rem !important;
@@ -42,17 +42,33 @@ st.markdown("""
             margin-bottom: 0px !important;
             line-height: 1.4 !important;
         }
+
+        /* --- TWEAK NATIVE TABS (PADDING FIX) --- */
+        /* ایجاد فاصله بین نوار تب و محتوای داخلش */
+        .stTabs [data-baseweb="tab-panel"] {
+            padding-top: 20px !important; 
+            padding-left: 5px !important;
+            padding-right: 5px !important;
+        }
         
+        /* درشت‌تر کردن فونت تب‌ها */
+        .stTabs [data-baseweb="tab"] {
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+        /* --------------------------------------- */
+        
+        /* استایل کارت‌ها */
         .user-card {
             background-color: #262730;
             border-radius: 8px;
-            padding: 10px 14px;
-            margin-bottom: 6px;
+            padding: 12px 16px;
+            margin-bottom: 8px;
             border-left: 5px solid #555;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
         }
         
         .user-info {
@@ -69,6 +85,9 @@ st.markdown("""
             font-size: 0.85em;
             color: #aaa;
             margin-right: 5px;
+            background-color: #333;
+            padding: 2px 6px;
+            border-radius: 4px;
         }
         
         .status-text {
@@ -95,8 +114,8 @@ st.markdown("""
         }
         
         .icon-btn {
-            width: 36px;
-            height: 36px;
+            width: 38px;
+            height: 38px;
             border-radius: 8px;
             transition: all 0.2s ease-in-out;
             display: flex;
@@ -186,40 +205,12 @@ def format_time_remaining(days_decimal):
     if days > 0: return f"{days}d {hours}h"
     return f"{hours}h"
 
-# --- 🔥 FINAL ROBUST PHONE EXTRACTION ---
 def extract_core_phone(username):
-    """
-    1. حذف تمام حروف و کاراکترهای غیر عددی (اما نه فاصله)
-    2. حذف فاصله‌ها
-    3. جستجوی الگو در رشته تمام‌عددی
-    """
-    # مرحله ۱: حذف حروف و علائم غیر عددی و غیر فاصله
-    # (اینجا فقط عدد و فاصله میمونه)
-    digits_and_spaces = re.sub(r'[^\d\s]', '', username)
-    
-    # مرحله ۲: حذف تمام فاصله‌ها برای چسباندن اعداد پخش شده
-    clean_digits = re.sub(r'\s+', '', digits_and_spaces)
-    
-    # مرحله ۳: جستجوی شماره موبایل در میان انبوه اعداد
-    # اولویت با شماره‌های طولانی‌تر (با ۹۸)
-    
-    # فرمت 98912... (12 رقم)
-    # از آخر به اول (برای جلوگیری از تداخل با اعداد ابتدای نام)
-    match_98 = re.search(r'(989\d{9})', clean_digits)
-    if match_98:
-        # مطمئن می‌شویم که این آخرین شماره معتبر است
-        # اگر چند شماره بود، آخریش احتمالا موبایل یوزر هست، نه کد یوزر
-        matches = re.findall(r'(989\d{9})', clean_digits)
-        if matches:
-            return matches[-1][2:] # برگرداندن 9xxxxxxxxx
-
-    # فرمت 0912... (11 رقم)
-    match_09 = re.search(r'(09\d{9})', clean_digits)
-    if match_09:
-        matches = re.findall(r'(09\d{9})', clean_digits)
-        if matches:
-            return matches[-1][1:] # برگرداندن 9xxxxxxxxx
-
+    digits_only = re.sub(r'\D', '', username)
+    match_98 = re.search(r'98(9\d{9})', digits_only)
+    if match_98: return match_98.group(1)
+    match_09 = re.search(r'0(9\d{9})', digits_only)
+    if match_09: return match_09.group(1)
     return None
 
 def get_sms_link(core_number, text):
@@ -278,7 +269,6 @@ elif st.session_state["authentication_status"]:
         debug_mode = st.checkbox("🐞 Debug Mode", value=val_debug)
         
         st.divider()
-        
         with st.expander("💬 Message Templates", expanded=True):
             st.caption("Vars: `{user}`, `{rem}`, `{time}`, `{date}`")
             current_tpl = settings['templates']
@@ -302,26 +292,13 @@ elif st.session_state["authentication_status"]:
             time.sleep(0.5)
             st.rerun()
 
-    # ---------------- T O P   M E N U ----------------
-    selected = option_menu(
-        menu_title=None,  
-        options=["Monitor", "Servers"], 
-        icons=["activity", "hdd-network"], 
-        menu_icon="cast", 
-        default_index=0, 
-        orientation="horizontal",
-        styles={
-            "container": {"padding": "0!important", "background-color": "#262730"},
-            "icon": {"color": "orange", "font-size": "18px"}, 
-            "nav-link": {"font-size": "16px", "text-align": "center", "margin":"0px", "--hover-color": "#333"},
-            "nav-link-selected": {"background-color": "#ff4b4b"},
-        }
-    )
+    # ---------------- NATIVE TABS (Styled with CSS) ----------------
+    tab_monitor, tab_servers = st.tabs(["📊 Live Monitor", "🎛️ Servers"])
 
     # =======================================================
-    # PAGE 1: MONITOR
+    # TAB 1: MONITOR
     # =======================================================
-    if selected == "Monitor":
+    with tab_monitor:
         
         def login_and_get_stats(server):
             session = requests.Session()
@@ -421,6 +398,7 @@ elif st.session_state["authentication_status"]:
                         })
             return alerts
 
+        st.write("") # Spacer for better alignment
         if st.button("🔄 Check Servers Now", type="primary", use_container_width=True):
             st.session_state['checking'] = True
             if 'scan_results' in st.session_state: del st.session_state['scan_results']
@@ -519,9 +497,9 @@ elif st.session_state["authentication_status"]:
                 st.success("✅ Clean!")
 
     # =======================================================
-    # PAGE 2: SERVERS
+    # TAB 2: SERVERS
     # =======================================================
-    if selected == "Servers":
+    with tab_servers:
         st.title("⚙️ Servers")
         
         current_servers = load_servers()
@@ -541,6 +519,46 @@ elif st.session_state["authentication_status"]:
                     st.success("Removed!")
                     time.sleep(1)
                     st.rerun()
+            
+            # --- TEST CONNECTION ---
+            st.divider()
+            st.subheader("🔧 Test Connection")
+            ct1, ct2 = st.columns([2, 1])
+            with ct1:
+                test_srv_name = st.selectbox("Check Server:", options=[s['name'] for s in current_servers], key="test_box")
+            with ct2:
+                st.write("")
+                st.write("")
+                if st.button("🚀 Test"):
+                    srv = next((s for s in current_servers if s['name'] == test_srv_name), None)
+                    if srv:
+                        with st.spinner("Pinging..."):
+                            session = requests.Session()
+                            base_url = srv['url'].rstrip('/')
+                            login_url = f"{base_url}/login"
+                            payload = {"username": srv['username'], "password": srv['password']}
+                            try:
+                                res = session.post(login_url, data=payload, timeout=10, verify=False)
+                                st.code(f"Login Status: {res.status_code}")
+                                
+                                endpoints = [
+                                    f"{base_url}/panel/api/inbounds/list",
+                                    f"{base_url}/xui/API/inbounds/",
+                                    f"{base_url}/xui/API/inbounds",
+                                    f"{base_url}/xui/API/inbounds/list",
+                                    f"{base_url}/api/inbounds/list"
+                                ]
+                                for ep in endpoints:
+                                    try:
+                                        r = session.get(ep, timeout=10, verify=False)
+                                        if r.status_code == 200:
+                                            st.success(f"OK: {ep}")
+                                        else:
+                                            st.warning(f"Fail: {ep} ({r.status_code})")
+                                    except Exception as e:
+                                        st.error(f"Err: {ep} -> {e}")
+                            except Exception as e:
+                                st.error(f"Login Failed: {e}")
         else:
             st.info("No servers.")
 

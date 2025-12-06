@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 X-UI Monitor - Admin User Management System
 Professional interactive menu for managing admin users

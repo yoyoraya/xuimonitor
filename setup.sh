@@ -151,13 +151,51 @@ EOF
 create_admin_user() {
     echo ""
     echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
-    echo -e "${WHITE}              Create Administrator Account${NC}"
+    echo -e "${WHITE}              Administrator Account Setup${NC}"
     echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
     echo ""
     
-    # Check if admin already exists
-    if grep -q "usernames: {}" "$CONFIG_FILE" || ! grep -q "usernames:" "$CONFIG_FILE"; then
-        local username password email confirm_password
+    # Activate virtual environment
+    source "$VENV_DIR/bin/activate"
+    
+    # Check if any admin users exist
+    local has_users=false
+    if ! grep -q "usernames: {}" "$CONFIG_FILE" && grep -q "usernames:" "$CONFIG_FILE"; then
+        # Show existing users
+        echo -e "${BLUE}Existing admin users:${NC}"
+        python3 -c "
+import yaml
+try:
+    with open('$CONFIG_FILE') as f:
+        config = yaml.safe_load(f)
+        users = config.get('credentials', {}).get('usernames', {})
+        if users:
+            for idx, (username, data) in enumerate(users.items(), 1):
+                print(f'  {idx}. {username} ({data.get(\"email\", \"N/A\")})')
+        else:
+            print('  No users found')
+except:
+    print('  No users found')
+"
+        echo ""
+        has_users=true
+    else
+        print_warning "No admin users found!"
+        echo ""
+    fi
+    
+    # Ask if user wants to create new admin
+    local create_new=""
+    if [ "$has_users" = true ]; then
+        read -p "$(echo -e ${CYAN}Do you want to create a new admin user? [y/N]:${NC} )" create_new
+    else
+        create_new="y"
+        print_info "You need to create at least one admin user to access the panel."
+        echo ""
+    fi
+    
+    if [[ "$create_new" =~ ^[Yy]$ ]]; then
+        local username password email confirm_password name
         
         # Get username
         while true; do
@@ -166,6 +204,39 @@ create_admin_user() {
                 print_error "Username cannot be empty"
             elif [[ ! "$username" =~ ^[a-zA-Z0-9_]+$ ]]; then
                 print_error "Username can only contain letters, numbers and underscore"
+            else
+                # Check if username already exists
+                if python3 -c "
+import yaml
+with open('$CONFIG_FILE') as f:
+    config = yaml.safe_load(f)
+    users = config.get('credentials', {}).get('usernames', {})
+    exit(0 if '$username' in users else 1)
+" 2>/dev/null; then
+                    print_error "Username '$username' already exists!"
+                else
+                    break
+                fi
+            fi
+        done
+        
+        # Get full name
+        while true; do
+            read -p "$(echo -e ${GREEN}Full Name:${NC} )" name
+            if [ -z "$name" ]; then
+                print_error "Name cannot be empty"
+            else
+                break
+            fi
+        done
+        
+        # Get email
+        while true; do
+            read -p "$(echo -e ${GREEN}Email:${NC} )" email
+            if [ -z "$email" ]; then
+                print_error "Email cannot be empty"
+            elif [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
+                print_error "Invalid email format"
             else
                 break
             fi
@@ -190,30 +261,19 @@ create_admin_user() {
             fi
         done
         
-        # Get email
-        while true; do
-            read -p "$(echo -e ${GREEN}Email:${NC} )" email
-            if [ -z "$email" ]; then
-                print_error "Email cannot be empty"
-            elif [[ ! "$email" =~ ^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$ ]]; then
-                print_error "Invalid email format"
-            else
-                break
-            fi
-        done
-        
         # Create admin user
-        source "$VENV_DIR/bin/activate"
-        python3 admin_manager.py add "$username" "$email" "Admin" "$password"
-        print_success "Administrator account created successfully"
+        echo ""
+        print_info "Creating admin user..."
+        python3 admin_manager.py add "$username" "$email" "$name" "$password"
         
         echo ""
         echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
         echo -e "${GREEN}Username:${NC} $username"
-        echo -e "${GREEN}Email:${NC} $email"
+        echo -e "${GREEN}Name:${NC}     $name"
+        echo -e "${GREEN}Email:${NC}    $email"
         echo -e "${CYAN}═══════════════════════════════════════════════════════════════${NC}"
     else
-        print_warning "Admin user already exists, skipping..."
+        print_info "Skipping admin user creation."
     fi
 }
 
